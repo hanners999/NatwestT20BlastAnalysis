@@ -1,118 +1,220 @@
-import os
 import csv
-from collections import Counter
+from typing import Any
+# Download NTB folder with matches from https://cricsheet.org/downloads/ 
+# Make sure to download the CSV file for this current code to work
 
 def read_file():
-    directory = "/Users/Luke/Desktop/Python_work/T20_files/"
-    file_name = "693009.csv"
-    f = open("{}ntb_male_csv/".format(directory) + "{}".format(file_name), "r")
+    directory = 'C:/Users/jacom/PycharmProjects/pythonProject'
+    file_name = '693085.csv'
+    f = open("{}/NTB/".format(directory) + "{}".format(file_name), "r")
     csv_f = list(csv.reader(f))
     f.close()
     return csv_f
 
+
 def info_grabber(csv_f):
     info_list = []
+    player_list = []
+    registry = []
     info = {}
-    #Adding useful information from spreadsheet to info list
+    team_sheet = {}
+    player_registry = {}
+    # Adding useful information from spreadsheet to lists
     for row in csv_f:
-        useless_rows = ["gender", "season", "event", "city"]
-        if row[0] == "info":
-            if row[1] not in useless_rows:
-                info_list.append([row[1],row[2]])
-        elif row[0] == "ball":
+        useless_rows = ["version", "balls_per_over", "gender", "season", "event", "city"]
+        if row[0] in useless_rows:
+            continue
+        elif row[0] == "info" and row[1] != "player" and row[1] != "registry":
+            info_list.append([row[1], row[2]])
+        elif row[0] == "info" and row[1] == "player":
+            player_list.append([row[2], row[3]])
+        elif row[0] == 'info' and row[1] == 'registry':
+            registry.append([row[3], row[4]])
+        else:
             break
+    # Converting 2D lists to 1D lists
     info_listed = [val for sublist in info_list for val in sublist]
-    info["home team"] = info_listed[1]
-    info["away team"] = info_listed[3]
-    for i in range(3,len(info_listed)-1):
+    players_listed = [val for sublist in player_list for val in sublist]
+    registry_listed = [val for sublist in registry for val in sublist]
+    # Creating dictionaries of match info
+    for _ in csv_f:
+        if _[1] == 'team' and 'home team' not in info:
+            info["home team"] = _[2]
+        elif _[1] == 'team':
+            info["away team"] = _[2]
+    for i in range(3, len(info_listed) - 1):
         if i % 2 == 0:
-            info[info_listed[i]] = info_listed[i+1]
-    print(info)
-
-    #print(info)
+            info[info_listed[i]] = info_listed[i + 1]
+    for i in range(len(players_listed) - 1):
+        if i % 2 == 0:
+            if players_listed[i] not in team_sheet:
+                team_sheet[players_listed[i]] = players_listed[i + 1]
+            elif players_listed[i] in team_sheet:
+                team_sheet[players_listed[i]] += f", {players_listed[i + 1]}"
+    for i in range(len(registry_listed) - 1):
+        if i % 2 == 0:
+            player_registry[registry_listed[i]] = registry_listed[i + 1]
     return info
 
-def match_stats_grabber(csv_f, info):
-    """column_headings = ["0 ball", "1 Innings", "2 Over", "3 Batting Team",
-    "4 On-Strike Batter", "5 Off-Strike Batter", "6 Bowler", "7 Runs",
-    "8 Extras", "9 Wides", "10 No-Ball", "11 Byes", "12 Leg-Byes",
-    "13 Penalty", "14 How out", "15 Player Out"]"""
-    #runs_breakdown = []
-    runs = {}
-    scorecard = {}
-    balls = {}
-    how_out = {}
+
+def match_stats_grabber(csv_f, info: object):
+    # column_headings = ["0 ball", "1 Innings", "2 Over", "3 Batting Team",
+    # 4 On-Strike Batter", "5 Off-Strike Batter", "6 Bowler", "7 Runs",
+    # 8 Extras", "9 Wides", "10 No-Ball", "11 Byes", "12 Leg-Byes",
+    # 13 Penalty", "14 How out", "15 Player Out"]"""
+    first_innings_runs: dict[Any, int] = {}
+    first_innings_scorecard = {}
+    first_innings_balls = {}
+    first_innings_how_out = {}
+    first_innings_runs_dict = {}
+    second_innings_runs: dict[Any, int] = {}
+    second_innings_scorecard = {}
+    second_innings_balls = {}
+    second_innings_how_out = {}
+    second_innings_runs_dict = {}
     team_total = {}
-    #extras =
-    #bowlers_figures =
-    runs_dict = {}
+
+    # overs_bowled = {}
+    # runs_conceded = {}
+    # bowling = {}
+    # wickets = {}
+    # bowling_figures = {'bowler': 0, overs_bowled, maidens, runs_conceded, wickets, wides, no-first_innings_balls}
+    # Determining who lost the toss and who is batting first
+    if info['home team'] == info['toss_winner']:
+        toss_loser = info['away team']
+    elif info['home team'] != info['toss_winner']:
+        toss_loser = info['home team']
+    if info['toss_decision'] == 'field':
+        first_innings: object = toss_loser
+    elif info['toss_decision'] != 'field':
+        first_innings = info['toss_winner']
+    # Determining which team the extras belong to for each innings
+    if first_innings == info['toss_winner']:
+        first_innings_extras = {'bowling team': f"{toss_loser}", 'total': 0, 'wides': 0, 'no-first_innings_balls': 0,
+                                'byes': 0, 'leg-byes': 0, 'penalty': 0}
+        second_innings_extras = {'bowling team': f"{info['toss_winner']}", 'total': 0, 'wides': 0,
+                                 'no-first_innings_balls': 0, 'byes': 0, 'leg-byes': 0, 'penalty': 0}
+    elif first_innings != info['toss_winner']:
+        first_innings_extras = {'bowling team': f"{info['toss_winner']}", 'total': 0, 'wides': 0,
+                                'no-first_innings_balls': 0, 'byes': 0, 'leg-byes': 0, 'penalty': 0}
+        second_innings_extras = {'bowling team': f"{toss_loser}", 'total': 0, 'wides': 0, 'no-first_innings_balls': 0,
+                                 'byes': 0, 'leg-byes': 0, 'penalty': 0}
     for row in csv_f:
-        if row[0] != "ball":
+        if row[0] == "info" or row[0] == "version":
             continue
-        if row[0] == "ball":
+        elif row[0] != "ball":
+            break
+        else:
             batter = row[4]
             team = row[3]
+            # Summing how much each team scored
             if team not in team_total:
                 team_total[team] = int(row[7]) + int(row[8])
             elif team in team_total:
                 team_total[team] += int(row[7]) + int(row[8])
-            if batter not in runs:
-                runs[batter] = int(row[7])
-                scorecard[batter] = "{}".format(row[7])
-            elif batter in runs:
-                runs[batter] += int(row[7])
-                scorecard[batter] += "{}".format(row[7])
-            else:
-                print("Error in adding {}'s total".format(batter))
-                break
-            #If not a wide, start counting deliveries
-            if row[9] == "":
-                if batter not in balls:
-                    balls[batter] = 1
-                elif batter in balls:
-                    balls[batter] += 1
-            elif batter not in balls:
-                balls[batter] = 0
-            if row[15] != "":
-                how_out[batter] = row[14]
-
-###BREAK FOR LOOP###
-    # This loop adds creates a breakdown of how they scored their runs and returns
+            # Summing how much each batter scored and creating scorecard for their innings
+            if int(row[1]) == 1:
+                if batter not in first_innings_runs:
+                    first_innings_runs[batter] = int(row[7])
+                    first_innings_scorecard[batter] = "{}".format(row[7])
+                elif batter in first_innings_runs:
+                    first_innings_runs[batter] += int(row[7])
+                    first_innings_scorecard[batter] += "{}".format(row[7])
+                else:
+                    print("Error in adding {}'s total".format(batter))
+                # if not a wide, start counting deliveries
+                if row[9] == "":
+                    if batter not in first_innings_balls:
+                        first_innings_balls[batter] = 1
+                    elif batter in first_innings_balls:
+                        first_innings_balls[batter] += 1
+                elif batter not in first_innings_balls:
+                    first_innings_balls[batter] = 0
+                if row[15] != "":
+                    first_innings_how_out[batter] = row[14]
+            # Second innings additions
+            elif int(row[1]) == 2:
+                if batter not in second_innings_runs:
+                    second_innings_runs[batter] = int(row[7])
+                    second_innings_scorecard[batter] = "{}".format(row[7])
+                elif batter in second_innings_runs:
+                    second_innings_runs[batter] += int(row[7])
+                    second_innings_scorecard[batter] += "{}".format(row[7])
+                else:
+                    print("Error in adding {}'s total".format(batter))
+                # if not a wide, start counting deliveries
+                if row[9] == "":
+                    if batter not in second_innings_balls:
+                        second_innings_balls[batter] = 1
+                    elif batter in second_innings_balls:
+                        second_innings_balls[batter] += 1
+                elif batter not in second_innings_balls:
+                    second_innings_balls[batter] = 0
+                if row[15] != "":
+                    second_innings_how_out[batter] = row[14]
+            if row[1] == 1 and 0 != row[8]:
+                first_innings_extras['total'] += int(float(row[8]))
+                if row[9] != '':
+                    first_innings_extras['wides'] += int(float(row[9]))
+                elif row[10] != '':
+                    first_innings_extras['no-first_innings_balls'] += int(float(row[10]))
+                elif row[11] != '':
+                    first_innings_extras['byes'] += int(float(row[11]))
+                elif row[12] != '':
+                    first_innings_extras['leg-byes'] += int(float(row[12]))
+                elif row[13] != '':
+                    first_innings_extras['penalty'] += int(float(row[13]))
+            if row[1] == 2 and 0 != row[8]:
+                second_innings_extras['total'] += int(float(row[8]))
+                if row[9] != '':
+                    second_innings_extras['wides'] += int(float(row[9]))
+                elif row[10] != '':
+                    second_innings_extras['no-first_innings_balls'] += int(float(row[10]))
+                elif row[11] != '':
+                    second_innings_extras['byes'] += int(float(row[11]))
+                elif row[12] != '':
+                    second_innings_extras['leg-byes'] += int(float(row[12]))
+                elif row[13] != '':
+                    second_innings_extras['penalty'] += int(float(row[13]))
+    # This loop adds creates a breakdown of how they scored their first_innings_runs and returns
     # an array with the batters name and the breakdown
-    team_scores = [score for team,score in team_total.items()]
-
-#Neeed to add code for who batted first / won the toss and therefore if they
-#win do they win by wickets or runs
-#"""    for team,score in team_total.items():
-#        if team_scores[0] > team_scores[1]:
-#            winning_margin = "{} won by {} runs".format(info["Home team"])
-#    #print(winning_margin)"""
-    for batter_name,scores in scorecard.items():
+    for batter_name, scores in first_innings_scorecard.items():
         listed_scores = sorted(list(scores))
-        breakdown = [[x,listed_scores.count(x)] for x in set(listed_scores)]
-        #runs_breakdown.append([batter_name, sorted(breakdown)])
-        runs_dict[batter_name] = sorted(breakdown)
-    return
-
-
-
-"""def file_checker():
-    """"""Function checks whether file to add data to exists already or not,
-    if not, it creates a new file ready""""""
-    file_number = 1
-    file_check= os.path.isfile("{}Match_Files/match{}.csv".format(directory, file_number))
-    if file_check:
-        return info_grabber()
+        breakdown = [[score, listed_scores.count(score)] for score in set(listed_scores)]
+        first_innings_runs_dict[batter_name] = sorted(breakdown)
+    for batter_name, scores in second_innings_scorecard.items():
+        listed_scores = sorted(list(scores))
+        breakdown = [[score, listed_scores.count(score)] for score in set(listed_scores)]
+        second_innings_runs_dict[batter_name] = sorted(breakdown)
+    # Bowling figures
+    # Determining match result
+    if len(list(team_total.values())) == 2:
+        if team_total[first_innings] > list(team_total.values())[1]:
+            print(f"{info['home team']} won by {info['winner_runs']} first_innings_runs")
+        elif team_total[first_innings] == list(team_total.values())[1]:
+            print('Tie')
+        elif team_total[first_innings] < list(team_total.values())[1]:
+            print(f"{info['home team']} won by {info['winner_wickets']} wickets")
     else:
-        h = open("{}/Match_Files/match{}.csv".format(directory, file_number), "x")
-        print("else")
-        return info_grabber()"""
+        print("No Result")
+
+    print(first_innings_runs)
+    print(second_innings_runs)
+    print(first_innings_balls)
+    print(second_innings_balls)
+    print(first_innings_how_out)
+    print(second_innings_how_out)
+    print(first_innings_runs_dict)
+    print(second_innings_runs_dict)
+    return
 
 
 def build_file():
     print("hello world")
 
+
 if __name__ == "__main__":
     x = read_file()
     y = info_grabber(x)
     (match_stats_grabber(x, y))
+
